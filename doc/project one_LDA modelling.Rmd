@@ -1,0 +1,49 @@
+---
+title: "projectone_LDAmodel"
+author: "Mingming Song"
+date: "9/18/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## LDA Modeling
+
+This is a support file for Project One_Mingming Song.Rmd. Since the LDA Gibbs sampling will cost around 4 hours, I saved a new dataset as dt_lyrics_labelled.csv for the rest of report analysis.
+
+```{r}
+# Set parameteres for Gibbs sampling
+burnin <- 2000
+iter <- 1000
+thin <- 500
+seed <- list(2003, 5, 63, 100001, 765)
+nstart <- 5
+best <- TRUE
+
+# number of topics
+k <- 11
+
+# Run the LDA usign Gibbs sampling
+ldaOut <- LDA(dtm, k, method = "Gibbs", control = list(nstart = nstart,
+                                                       seed = seed, best = best,
+                                                       burnin = burnin, iter = iter,
+                                                       thin = thin))
+```
+
+```{r}
+# Save the first 20 key words in each topics and select ones for love
+topics <- as.matrix(topics(ldaOut))
+terms <- as.matrix(terms(ldaOut,20))
+write.csv(terms, file = paste("/Users/mingming/Desktop/Fall 2019/ADS/fall2019-proj1--songm0428/output/LDATerms.csv"))
+aboutlove <- terms[-1,4]
+```
+
+```{r}
+# use first 10 words about love to label each lyrics
+label <- c("baby", "girl", "shes", "tonight", "kiss", "gotta", "sweet", "mine", "true", "touch")
+dt_lyrics$topic <- as.vector(topics)
+dt_lyrics$label <- label[topics]
+write.csv(dt_lyrics, file = paste("/Users/mingming/Desktop/Fall 2019/ADS/fall2019-proj1--songm0428/output/dt_lyrics_labelled.csv"))
+```

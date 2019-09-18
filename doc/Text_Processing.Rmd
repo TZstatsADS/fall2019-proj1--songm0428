@@ -2,6 +2,8 @@
 title: "Stem Completion"
 author: "Chengliang Tang, Arpita Shah, Yujie Wang and Tian Zheng"
 output: html_notebook
+editor_options: 
+  chunk_output_type: inline
 ---
 
 ```{r setup, include=FALSE}

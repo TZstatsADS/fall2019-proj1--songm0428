@@ -1,0 +1,182 @@
+---
+title: "What are Lyrics telling you."
+author: "Mingming Song"
+date: "9/15/2019"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = T)
+```
+![](/Users/mingming/Desktop/Fall 2019/ADS/fall2019-proj1--songm0428/figs/Beatles.jpg)
+
+#
+#### Music is the language of the world. Most popular musics also need brilliant vivid lyrics as a blunt force to hit people's hearts. But what kind of lyrics are more popular? What are the key words in lyrics? What topics of lyrics are well-liked by lyricists? Let's find out by analyzing part of lyrics in the past 50 years.
+
+## Preparation
+
+#### Load Libraries and the cleaned and processed data.
+
+```{r}
+# This report is prepared with the following environmental settings.
+print(R.version)
+```
+
+In this project, in stead of using ShinyApp, I will use simply polts like bar-plot to be more clear and insightful.
+
+```{r load libraries, warning=FALSE, message=FALSE}
+library(tm)
+library(tidytext)
+library(tidyverse)
+library(tidyr)
+library(plotly)
+library(DT)
+library(data.table)
+library(scales)
+library(ngram)
+library(dplyr)
+library(slam)
+library(LDAvis)
+library(servr)
+library(topicmodels)
+library(gridExtra)
+library(ggplot2)
+library(wordcloud2)
+```
+
+I load processed_lyrics for my first part general analysis, included stemmedwords for further analysis.
+
+```{r load data, warning=FALSE, message=FALSE}
+load('/Users/mingming/Desktop/Fall 2019/ADS/fall2019-proj1--songm0428/output/processed_lyrics.RData') 
+corp <- Corpus(VectorSource(dt_lyrics$stemmedwords))
+dtm <- DocumentTermMatrix(corp) 
+```
+
+# Key Words Competition
+
+## Question one: What is the key word in lyrics?
+
+Besides the genres of different musics, almost all the songs have its own topic, like poems. It's interesting for me to know what is the key word that appears most frequently in all musics. Before achieving the final results, I will check the data in different years and genres.
+
+```{r warning=FALSE}
+# barplot to check the number of songs in each year periods
+attach(dt_lyrics)
+dt_lyrics$years[year > 1960 & year < 1970] <- "1960s"
+dt_lyrics$years[year >= 1970 & year < 1980] <- "1970s"
+dt_lyrics$years[year >= 1980 & year < 1990] <- "1980s"
+dt_lyrics$years[year >= 1990 & year < 2000] <- "1990s"
+dt_lyrics$years[year >= 2000 & year < 2010] <- "2000s"
+dt_lyrics$years[year >= 2010 & year < 2020] <- "2010s"
+detach(dt_lyrics)
+
+ggplot(dt_lyrics, aes(x = factor(dt_lyrics$genre)))+
+  geom_bar(stat="count", fill = 'darkseagreen')+
+  labs(title = 'Number of Songs in Different Genres', x = 'Genres')+
+  theme_minimal()
+cat("\n")
+cat("\n")
+ggplot(dt_lyrics, aes(x = factor(dt_lyrics$years)))+
+  geom_bar(stat="count", fill = 'steelblue')+
+  labs(title = 'Number of Songs in Different Years', x = 'Years')+
+  theme_minimal()
+```
+
+From above plots, we know that in our dataset, the number of songs in Rock are much higher than others in totally 125715 songs. Similarly, the number of songs in 2000s are extremely high in our dataset, and before 2000s, there are small amount of songs been collected. Thus, in the following analysis, we will use ratio instead of frequency for number of key words appeared in different genres.
+
+![](/Users/mingming/Desktop/Fall 2019/ADS/fall2019-proj1--songm0428/figs/love.jpg)
+
+I did not make this fancy picture above, which is coming from one of the results in Lyrics_ShinyApp.Rmd. But according to the results from Lyrics_ShinyApp, we can achieve a lot of information: love is the key word for most of the music styles; I found it's very obvious for Folk, R&B, Electronic, Jazz, Indie, Country, Rock, Pop and Hip-Hop. I also wonder who is the champion with the most "love"s in their lyrics among all the genres?
+
+```{r warning=FALSE}
+# A plot of key word, love, appears in lyrics of different type of musics.
+newgenre <- dt_lyrics[dt_lyrics$genre != "Not Available",]
+type <- names(table(newgenre$genre))
+freq <-as.vector( as.numeric(table(newgenre$genre)))
+containlove<-newgenre[grep(pattern ="^lov", newgenre$stemmedwords),]
+freqlove<-as.vector(as.numeric(table(containlove$genre)))
+ratio <- freqlove / freq *100
+df <- data_frame(type, ratio)
+ggplot(df, aes(x = type, y = ratio))+
+    geom_bar(stat="identity", fill = rainbow(11)) +
+    labs(title = 'Loves Competition')
+```
+
+It's interesting to know that Jazz won the competition with the most of love in its lyrics. Although Rock had a huge competitive advantage in amount and love is still the key word in Rock, it did not have enough "love"s in its lyrics. Generally, I would think Jazz musics are more likely to include love as its topic other than other genres. In the following, I would like to figure out what are people loving about? We all want to love and to be loved. But what are the lyricists loving in their musics?
+
+# Love is an Eternal Topic
+
+## Question two: What are lyricists loving?
+
+#### Build the LDA model
+
+There is a support file for Project One_Mingming Song.Rmd, called project one_LDA modelling.Rmd. Since the LDA Gibbs sampling will cost around 4 hours, I saved a new dataset as dt_lyrics_labelled.csv for the rest of report analysis. Here is a quick peek of what we get: it's very interesting to find different toipcs with its key words, and probably could recognize what genre it belongs. But in the rest part of my report, I will still focus on love.
+
+```{r}
+# Set parameteres for Gibbs sampling
+# burnin <- 2000
+# iter <- 1000
+# thin <- 500
+# seed <- list(2003, 5, 63, 100001, 765)
+# nstart <- 5
+# best <- TRUE
+
+# number of topics
+# k <- 11
+
+# Run the LDA usign Gibbs sampling
+# ldaOut <- LDA(dtm, k, method = "Gibbs", control = list(nstart = nstart,
+#                                                       seed = seed, best = best,
+#                                                       burnin = burnin, iter = iter,
+#                                                       thin = thin))
+```
+
+```{r}
+# Save the first 20 key words in each topics and select ones for love
+# topics <- as.matrix(topics(ldaOut))
+# terms <- as.matrix(terms(ldaOut,20))
+# write.csv(terms, file = paste("/Users/mingming/Desktop/Fall 2019/ADS/fall2019-proj1--songm0428/output/LDATerms.csv"))
+# aboutlove <- terms[-1,4]
+```
+
+```{r}
+# use first 10 words about love to label each lyrics
+# label <- c("baby", "girl", "shes", "tonight", "kiss", "gotta", "sweet", "mine", "true", "touch")
+# dt_lyrics$topic <- as.vector(topics)
+# dt_lyrics$label <- label[topics]
+# write.csv(dt_lyrics, file = paste("/Users/mingming/Desktop/Fall 2019/ADS/fall2019-proj1--songm0428/output/dt_lyrics_labelled.csv"))
+```
+
+```{r, message=FALSE, warning=FALSE}
+ldaterm <- read_csv("/Users/mingming/Desktop/Fall 2019/ADS/fall2019-proj1--songm0428/output/LDATerms.csv")
+ldaterm <- ldaterm[,-1]
+ldaterm[1:6, 1:6]
+```
+
+## Summary: Lyricists need to know-- Happy Wife, Happy Life.
+
+The first five key words under love are "baby", "girl", "shes", "tonight", and "kiss". The surprise for me is that there is no sign of "wife" or "girlfriends" in the first twenty words under love. Probably people are more likely to use love songs to find lovers. But after they got married, they don't have to waste energy and time making their wife happy. However, Lyricists need to know that happy wife, happy life.
+
+```{r, warning=FALSE}
+mydata <- read_csv("/Users/mingming/Desktop/Fall 2019/ADS/fall2019-proj1--songm0428/output/dt_lyrics_labelled.csv")
+mydata <- mydata[,-1]
+```
+
+In the first ten key words under love, I make a pie for how its performance with love. It turns out that there isn't huge differences between those words and they are evenly arranged under love.
+
+```{r, warning=FALSE, message=FALSE}
+pie1 <- table(mydata$label)
+love_label <- paste(names(pie1),"",round(pie1/sum(pie1,na.rm = T),4)*100,"%",sep="")
+pielove <- pie(as.numeric(pie1),love_label)
+```
+
+Here is people want! Find the first three words you saw; mine is "tonight, kiss, girl". I won't say there is someting wrong between how people treat love and their own definition of love. But as a female, I would love to hear some long love stories rather than amorous lovers saying how great and eager they are.
+
+```{r, warning=FALSE, message=FALSE}
+# freq_love <- data.frame(table(mydata$label))
+# color <- rep("red", "lightpink", length.out = nrow(freq_love))
+# wordcloud2(freq_love, size = 0.5, color = color)
+```
+
+![](/Users/mingming/Desktop/Fall 2019/ADS/fall2019-proj1--songm0428/figs/aboutlove.jpg)
